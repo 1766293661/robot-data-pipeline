@@ -1,0 +1,6 @@
+# Downloaded source datasets are reproducible inputs, not repository content.
+input_data/
+.venv/
+output/
+__pycache__/
+.pytest_cache/

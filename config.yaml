@@ -1,0 +1,130 @@
+# 每个 source 的 source_revision 应替换为下载时记录的上游 commit、release 或不可变快照标识。
+runtime:
+  # 单次交给低维数据读取器处理的帧数量。增大可提高吞吐，但会提高峰值内存。
+  batch_size: 64
+  # 可并行处理的 worker 数。建议不超过本机 CPU 核数，也要考虑磁盘带宽。
+  worker_count: 8
+  # 已被读取但尚未完成质检/入库的 episode 上限，用于限制并发时的内存占用。
+  max_in_flight_episodes: 8
+
+paths:
+  # 原始数据根目录。以下所有相对 root 都以此目录为基准解析。
+  input_root: input_data
+  # SQLite、处理报告和训练导出文件的统一输出目录；不会修改 input_root。
+  output_root: output
+  # 数据库文件名，最终路径固定为 output_root / database_filename。
+  database_filename: robot_pipeline.sqlite
+
+# 训练子集导出配置。导出按 source_id + robot_type 分桶轮询，避免最大来源吞没预算。
+export:
+  frame_budget: 50000
+  # 每行 JSONL 保存一个连续 clip；预算最后不足一个 clip 时允许截断。
+  clip_length: 16
+  output_filename: train.jsonl
+  # 默认只导出 accepted；true 时同时包含 needs_review。
+  include_needs_review: false
+
+sources:
+  # source_id + source_revision + native_episode_id 是 episode 的唯一性约束。
+  - source_id: lerobot_aloha_transfer_cube_human
+    # Hugging Face dataset commit used for this local download.
+    source_revision: 6a43d500f101255823a9d2b9dc244eeb01a2cd31
+    # 用于血缘追踪的来源定位；不参与数据库唯一性判断。
+    source_uri: https://huggingface.co/datasets/lerobot/aloha_sim_transfer_cube_human/tree/6a43d500f101255823a9d2b9dc244eeb01a2cd31
+    # 相对 input_root 的路径；LeRobot adapter 会使用标准文件名默认值。
+    format: lerobot
+    root: lerobot_aloha_sim_transfer_cube_human
+    robot_type: dual_arm
+    # LeRobot Parquet 的 timestamp 是主时间轴，采样率来自 info.json 并在此显式登记。
+    native_fps: 50
+    time_basis: native_timestamp
+    # action/state 映射决定归一化记录的语义，不能只根据向量维度推断。
+    action_mapping:
+      source_field_path: action
+      representation: joint_position_target
+      units: rad
+      coordinate_frame: joint_space
+      groups:
+        left_arm: [0, 1, 2, 3, 4, 5, 6]
+        right_arm: [7, 8, 9, 10, 11, 12, 13]
+    state_mapping:
+      source_field_path: observation.state
+      representation: joint_position
+      units: rad
+      coordinate_frame: joint_space
+      groups:
+        left_arm: [0, 1, 2, 3, 4, 5, 6]
+        right_arm: [7, 8, 9, 10, 11, 12, 13]
+
+  - source_id: oxe_bridge
+    source_revision: 3cde9e791b4f9d3ad93efcdd1e47747f2c37edd1
+    source_uri: https://huggingface.co/datasets/jxu124/OpenX-Embodiment/tree/3cde9e791b4f9d3ad93efcdd1e47747f2c37edd1
+    format: oxe_tar
+    root: oxe_bridge
+    robot_type: single_arm
+    # 当前 OXE step 不含可靠秒时间戳，仅以 steps 的原始序号作为时间顺序。
+    time_basis: step_index
+    # OXE action 是嵌套的混合控制量，必须为每个分量声明单位和坐标系。
+    action_mapping:
+      source_field_path: action
+      representation: composite_cartesian_delta_and_gripper
+      units: mixed
+      coordinate_frame: mixed
+      components:
+        world_vector:
+          source_field_path: action.world_vector
+          representation: cartesian_translation_delta
+          units: m
+          coordinate_frame: world
+        rotation_delta:
+          source_field_path: action.rotation_delta
+          representation: rotation_delta
+          units: rad
+          coordinate_frame: dataset_native
+        open_gripper:
+          source_field_path: action.open_gripper
+          representation: gripper_open_command
+          units: boolean
+        terminate_episode:
+          source_field_path: action.terminate_episode
+          representation: termination_command
+          units: boolean
+    state_mapping:
+      source_field_path: observation.state
+      representation: dataset_native_state
+      units: dataset_native
+    adapter_options:
+      # 这是随 OXE 导出结构变化的嵌套字段路径。标准 tar 处理细节不放配置。
+      image_field_path: steps[].observation.image
+
+  - source_id: robomimic_test
+    source_revision: 74fa018461f479cd9fd15b924a16103012096203
+    source_uri: https://huggingface.co/datasets/robomimic/robomimic_datasets/tree/74fa018461f479cd9fd15b924a16103012096203
+    format: robomimic_hdf5
+    # 相对 input_root 的 robomimic 数据目录；HDF5 文件名在 adapter_options 中配置。
+    root: robomimic
+    robot_type: panda_single_arm
+    time_basis: step_index
+    # 已知 action 是 7 维，但未从上游文档确认其控制空间，因此显式保留 dataset_native 语义。
+    action_mapping:
+      source_field_path: actions
+      representation: dataset_native_action
+      units: dataset_native
+      coordinate_frame: unspecified
+    state_mapping:
+      source_field_path: states
+      representation: mujoco_simulator_state
+      units: dataset_native
+      coordinate_frame: simulation_world
+    adapter_options:
+      # 以下键路径来自对当前 HDF5 文件的只读探测，换用其它 robomimic 数据集时需要重点核对。
+      file: test.hdf5
+      demo_root: data
+      action_dataset: actions
+      state_dataset: states
+      observation_root: obs
+      done_dataset: dones
+      reward_dataset: rewards
+      camera_datasets:
+        - agentview_image
+        - robot0_eye_in_hand_image

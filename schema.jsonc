@@ -1,0 +1,223 @@
+// Robot Data Pipeline 统一存储 schema，版本 1.0.0。
+// 本文件是带注释的 JSONC 契约说明；运行时配置由 core/config.py 校验。
+// 原始媒体二进制、任意 ndarray 和未受约束的大型嵌套对象不得写入 SQLite。
+{
+  "schema_version": "1.0.0",
+
+  // 所有 media/container 路径的统一约定。
+  "path_contract": {
+    // 路径基准是该 source 在 config.yaml 中的 root，而不是工作目录、config.yaml 或 SQLite 文件位置。
+    "media_path_base": "source_root",
+    // 路径必须是相对路径，使用 POSIX 分隔符，且不得以 / 开头或包含 ..。
+    "path_format": "relative_posix_path"
+  },
+
+  // source 记录来源配置和血缘。source_uri 是定位信息，不是主键。
+  "source": {
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    "source_uri": "local://input_data/lerobot_aloha_sim_transfer_cube_human",
+    "format": "lerobot | oxe_tar | robomimic_hdf5 | video_only",
+    // source_root 来自 config.yaml 的 sources[].root；所有媒体引用均相对此目录。
+    "source_root": "lerobot_aloha_sim_transfer_cube_human",
+    "manifest_json": "配置快照",
+    "artifact_fingerprint": "轻量文件变更指纹"
+  },
+
+  // episode 是发现、归一化、质检、断点恢复和幂等写入的原子单位。
+  "episode": {
+    // 数据库唯一约束：UNIQUE(source_id, source_revision, native_episode_id)。
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    // 直接保留上游标识：episode_index、demo_0 或 tar member 名。
+    "native_episode_id": "0",
+    "robot_type": "dual_arm",
+    "native_fps": 50.0,
+    "capabilities": {
+      "action": true,
+      "state": true,
+      "proprioception": true,
+      "images": true,
+      "language_instruction": false,
+      "robot_identity": true
+    },
+    "task": {
+      "text": "Pick up the cube",
+      "native_task_id": "0"
+    },
+    // 状态机值：discovered | normalized | quality_checked | stored。异常保存在 checkpoint.last_error，不覆盖最后成功阶段。
+    "processing_stage": "normalized",
+    // accepted | rejected | needs_review；仅在完成质检后有值。
+    "quality_status": null
+  },
+
+  // frame 是 SQLite 中低维信号和媒体引用的索引单位，不是恢复事务单位。
+  "frame": {
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    "native_episode_id": "0",
+    // 保留来源内的原始帧/step 顺序，始终从 0 开始递增。
+    "frame_index": 0,
+
+    // 只能是 native_timestamp、derived_from_fps、step_index 三者之一。
+    "time_basis": "native_timestamp",
+    // 只有 time_basis=native_timestamp 时非空，绝不填入推导出的秒数。
+    "native_timestamp_sec": 0.0,
+    // 只有 time_basis=derived_from_fps 时非空，由 manifest 的可靠 fps 计算。
+    "derived_timestamp_sec": null,
+
+    // signal 只允许 vector 或 named_components 两种形态之一；不能混用。
+    "action": {
+      "form": "vector",
+      "source_field_path": "action",
+      "representation": "joint_position_target",
+      // vector 形态：values 必填，且 values.length 必须等于 dimension。
+      "values": [0.0, -0.96, 1.16, 0.0, -0.30, 0.0, 0.0, 0.0, -0.96, 1.16, 0.0, -0.30, 0.0, 0.0],
+      "dimension": 14,
+      "units": "rad",
+      "coordinate_frame": "joint_space",
+      "groups": {
+        "left_arm": [0, 1, 2, 3, 4, 5, 6],
+        "right_arm": [7, 8, 9, 10, 11, 12, 13]
+      },
+      // vector 形态下 components 必须为 null。
+      "components": null
+    },
+
+    // 缺少状态的来源必须存 null，不能填充零数组。
+    "state": null,
+
+    // 媒体仅存可重定位引用。每个对象必须包含 kind 和 encoding。
+    "camera_refs": [
+      // 每帧仅列出该帧实际可用的一个或多路媒体引用，具体 kind 的字段见下方 variants。
+      {"kind": "media_reference_variant", "encoding": "source_declared"}
+    ],
+
+    // extra 是受限白名单，不能成为未解析原始数据的口袋。
+    "extra": {
+      "reward": 0.0,
+      "termination": {
+        "is_first": true,
+        "is_last": false,
+        "is_terminal": false,
+        "done": false
+      },
+      "task_text": null,
+      "language_instruction": null,
+      "environment_label": null,
+      // 仅记录未映射字段名，值不进入 SQLite。
+      "unknown_field_names": []
+    }
+  },
+
+  // 同一 frame 不会同时包含所有变体；adapter 按来源选择对应对象结构。
+  "camera_ref_variants": {
+    "lerobot_video": {
+      // 单帧定位：至少 video_frame_index 或 (pts + pts_time_base) 之一必须存在。
+      // 首版 adapter 对已映射的 LeRobot 帧同时保存两者，导出器优先按 pts 读取并核对 frame index。
+      "kind": "lerobot_video",
+      "camera_key": "observation.images.top",
+      "video_relative_path": "top.mp4",
+      "video_frame_index": 0,
+      "pts": 0,
+      "pts_time_base": "1/50",
+      // native_timestamp -> video PTS 映射来自 episode video 索引和实际解码结果。
+      "alignment_method": "nearest_pts_to_native_timestamp",
+      "native_timestamp_sec": 0.0,
+      "episode_timestamp_start_sec": 0.0,
+      "episode_timestamp_end_sec": 8.0,
+      "encoding": "av1"
+    },
+    "embedded_tar_pickle": {
+      // OXE 图片嵌入 tar member 的 pickle 中，以下定位字段缺一不可。
+      "kind": "embedded_tar_pickle",
+      "container_relative_path": "bridge_00000.tar",
+      "member_name": "sample_000000000000.data.pickle",
+      "step_index": 0,
+      "field_path": "steps[0].observation.image",
+      "encoding": "jpeg"
+    },
+    "hdf5_dataset": {
+      "kind": "hdf5_dataset",
+      "container_relative_path": "test.hdf5",
+      "dataset_path": "data/demo_0/obs/agentview_image",
+      "frame_index": 0,
+      "encoding": "rgb_uint8"
+    }
+  },
+
+  // action/state 为 named_components 形态时使用以下结构，替代 frame.action/frame.state 中的 vector 对象。
+  "signal_named_components_variant": {
+    "form": "named_components",
+    "source_field_path": "action",
+    "representation": "composite_cartesian_delta_and_gripper",
+    // named_components 形态下 values、dimension、groups 必须为 null。
+    "values": null,
+    "dimension": null,
+    "units": "mixed",
+    "coordinate_frame": "mixed",
+    "groups": null,
+    "components": {
+      "world_vector": {
+        "representation": "cartesian_translation_delta",
+        "values": [0.0, 0.0, 0.0],
+        "units": "m",
+        "coordinate_frame": "world"
+      },
+      "open_gripper": {
+        "representation": "gripper_open_command",
+        "value": true,
+        "units": "boolean",
+        "coordinate_frame": null
+      }
+    }
+  },
+
+  // 每条规则都保存证据，单个 episode 失败不会阻塞其它 episode。
+  "quality_result": {
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    "native_episode_id": "0",
+    "rule_id": "timestamp_monotonicity",
+    "severity": "error | warning",
+    "passed": true,
+    "evidence": {"max_interval_error": 0.01},
+    "rule_version": "1.0.0"
+  },
+
+  // checkpoint 记录最后一个已原子提交的阶段，是 kill/restart 恢复的依据。
+  "checkpoint": {
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    "native_episode_id": "0",
+    "stage": "normalized",
+    "attempt": 1,
+    "last_error": null,
+    "updated_at": "2026-07-28T00:00:00Z"
+  },
+
+  // 训练子集导出文件为 UTF-8 JSON Lines：每行是一个连续 clip，而不是任意散帧。
+  "jsonl_export_record": {
+    "schema_version": "1.0.0",
+    "source_id": "lerobot_aloha_transfer_cube_human",
+    "source_revision": "immutable-upstream-commit-or-snapshot",
+    "robot_type": "dual_arm",
+    "native_episode_id": "0",
+    // 闭区间，且 frame_end >= frame_start。
+    "frame_range": {"frame_start": 0, "frame_end": 15},
+    "time_basis": "native_timestamp",
+    "quality_status": "accepted",
+    // 关键低维字段按原始连续顺序给出；媒体仍是引用，不嵌入图像/视频字节。
+    "frames": [
+      {
+        "frame_index": 0,
+        "native_timestamp_sec": 0.0,
+        "derived_timestamp_sec": null,
+        "action": {"form": "vector", "representation": "joint_position_target"},
+        "state": {"form": "vector", "representation": "joint_position"},
+        "camera_refs": [{"kind": "lerobot_video", "video_frame_index": 0, "pts": 0}],
+        "extra": {"termination": {"done": false}}
+      }
+    ]
+  }
+}

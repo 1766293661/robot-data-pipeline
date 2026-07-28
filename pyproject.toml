@@ -1,0 +1,17 @@
+[project]
+name = "robot-data-pipeline"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "av>=18.0.0",
+    "h5py>=3.16.0",
+    "numpy>=2.5.1",
+    "pyarrow>=25.0.0",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
