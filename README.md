@@ -16,6 +16,22 @@
 
 当前**不支持**直接读取 RLDS TFRecord、任意 CSV/JSON、纯视频目录或未知 HDF5 布局。配置阶段会拒绝不支持的 `format`；即使格式名称正确，实际文件布局或字段路径不匹配时，处理会记录该 episode 的错误并继续其它 episode。新增格式需要在 `core/adapters/` 实现 adapter，并同时扩展 `SourceConfig.format` 的允许值。
 
+## 新增来源的最小配置
+
+大多数来源不需要逐项填写 action、state 和 adapter 字段。`profile` 会提供已验证的字段路径、时间依据和语义映射；使用者通常只填写身份、版本和输入目录。
+
+例如新增一个结构相同的 OXE Bridge tar 数据：
+
+```yaml
+- source_id: oxe_bridge_new
+  source_revision: <上游不可变_commit>
+  source_uri: https://huggingface.co/datasets/jxu124/OpenX-Embodiment/tree/<commit>
+  profile: oxe_bridge
+  root: oxe_bridge_new
+```
+
+`root` 相对 `input_data/`。当前内置 profile 为 `lerobot_aloha_dual_arm`、`oxe_bridge`、`robomimic_panda_low_dim`。只有数据布局或语义偏离 profile 时，才在该 source 下追加覆盖字段，例如 `adapter_options.image_field_path` 或 `action_mapping`。
+
 ## 环境安装
 
 项目使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境和依赖。请先安装 uv，然后在项目根目录执行：

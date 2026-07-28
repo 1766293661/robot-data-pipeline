@@ -1,0 +1,47 @@
+commit d2c65afa089162c0c80c1c581db1284cc67ac919
+Author: czk <1766293661@qq.com>
+Date:   2026-07-28T16:36:53+08:00
+
+    机器人数据入库管线初版实现
+
+ .gitignore                                         |   6 +
+ ARCHITECTURE.md                                    | 176 ++++++++++
+ README.md                                          | 133 +++++++-
+ config.yaml                                        | 130 ++++++++
+ core/__init__.py                                   |   1 +
+ core/adapters/__init__.py                          |   3 +
+ core/adapters/base.py                              |  56 ++++
+ core/adapters/hdf5.py                              |  56 ++++
+ core/adapters/lerobot.py                           | 159 +++++++++
+ core/adapters/oxe.py                               |  69 ++++
+ core/config.py                                     | 106 ++++++
+ core/export.py                                     |  58 ++++
+ core/models.py                                     |  50 +++
+ core/normalize.py                                  | 109 +++++++
+ core/pipeline.py                                   |  65 ++++
+ core/quality.py                                    | 114 +++++++
+ core/store.py                                      | 161 +++++++++
+ pyproject.toml                                     |  17 +
+ run.py                                             |  44 +++
+ schema.jsonc                                       | 223 +++++++++++++
+ uv.lock                                            | 362 +++++++++++++++++++++
+ ...5\260\346\215\256\345\205\245\345\272\223v1.md" | 143 ++++++++
+ 22 files changed, 2239 insertions(+), 2 deletions(-)
+
+commit b63873f28ac7b31adb7a2f9063d46581961e6247
+Author: czk <1766293661@qq.com>
+Date:   2026-07-28T13:12:55+08:00
+
+    first commit
+
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 12ec83977905867ce78ef5c365943ac672670315
+Author: czk <1766293661@qq.com>
+Date:   2026-07-28T12:29:21+08:00
+
+    first commit
+
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)

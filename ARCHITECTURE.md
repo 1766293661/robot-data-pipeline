@@ -39,6 +39,8 @@ LeRobot 目录的现有切片中，Parquet 直接位于数据集根目录而非�
 
 `source manifest` 是唯一需要使用者维护的接入配置。每个 source 声明：稳定 `source_id`、`source_revision`（上游 commit、release、导出批次号或人工冻结版本）、格式类型、根目录/`source_uri`、机器人类型、标称 fps、动作/状态语义映射和可选视频路径规则。根目录必须是只读输入；输出数据库、运行日志和导出文件放在独立的 `output/` 目录。`source_uri` 用于血缘追踪，不用作唯一键。标准 LeRobot 文件名、目录和字段约定属于 adapter 默认值；只有偏离标准的数据集才通过 `adapter_options` 覆盖。不同数据集会变化的字段路径（如 robomimic 的 demo/action/state/camera 路径、OXE 的嵌套图像路径）保留在配置中。
 
+为避免重复配置，当前实现提供 `profile` 继承。`lerobot_aloha_dual_arm`、`oxe_bridge`、`robomimic_panda_low_dim` 分别封装已验证的格式、时间依据、信号语义与字段路径；新增同结构来源通常只需写身份、revision、URI、profile 和 root。遇到非标准导出时，source 层的字段会深度覆盖 profile 默认值，且未知 profile 在配置加载时直接报错。
+
 ## 统一表示
 
 核心原则是“统一容器，不伪造统一物理意义”。不同本体的 action 维度不能仅靠补零或截断变成同一向量：ALOHA 的 14 维双臂关节命令、Bridge 的末端位移/旋转增量、纯视频的人类动作没有可直接互换的控制含义。因此入库时保留 native 表示，并且只在有明确映射时额外生成 canonical 表示。

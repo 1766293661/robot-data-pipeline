@@ -31,100 +31,20 @@ sources:
     source_revision: 6a43d500f101255823a9d2b9dc244eeb01a2cd31
     # 用于血缘追踪的来源定位；不参与数据库唯一性判断。
     source_uri: https://huggingface.co/datasets/lerobot/aloha_sim_transfer_cube_human/tree/6a43d500f101255823a9d2b9dc244eeb01a2cd31
-    # 相对 input_root 的路径；LeRobot adapter 会使用标准文件名默认值。
-    format: lerobot
+    # profile 提供格式、fps、语义映射和标准 adapter 默认值；大多数新增同类数据只需改本段身份和 root。
+    profile: lerobot_aloha_dual_arm
     root: lerobot_aloha_sim_transfer_cube_human
-    robot_type: dual_arm
-    # LeRobot Parquet 的 timestamp 是主时间轴，采样率来自 info.json 并在此显式登记。
-    native_fps: 50
-    time_basis: native_timestamp
-    # action/state 映射决定归一化记录的语义，不能只根据向量维度推断。
-    action_mapping:
-      source_field_path: action
-      representation: joint_position_target
-      units: rad
-      coordinate_frame: joint_space
-      groups:
-        left_arm: [0, 1, 2, 3, 4, 5, 6]
-        right_arm: [7, 8, 9, 10, 11, 12, 13]
-    state_mapping:
-      source_field_path: observation.state
-      representation: joint_position
-      units: rad
-      coordinate_frame: joint_space
-      groups:
-        left_arm: [0, 1, 2, 3, 4, 5, 6]
-        right_arm: [7, 8, 9, 10, 11, 12, 13]
 
   - source_id: oxe_bridge
     source_revision: 3cde9e791b4f9d3ad93efcdd1e47747f2c37edd1
     source_uri: https://huggingface.co/datasets/jxu124/OpenX-Embodiment/tree/3cde9e791b4f9d3ad93efcdd1e47747f2c37edd1
-    format: oxe_tar
+    # 新增同结构的 OXE Bridge 数据时，仅需复制这五个字段并修改 source_id/revision/uri/root。
+    profile: oxe_bridge
     root: oxe_bridge
-    robot_type: single_arm
-    # 当前 OXE step 不含可靠秒时间戳，仅以 steps 的原始序号作为时间顺序。
-    time_basis: step_index
-    # OXE action 是嵌套的混合控制量，必须为每个分量声明单位和坐标系。
-    action_mapping:
-      source_field_path: action
-      representation: composite_cartesian_delta_and_gripper
-      units: mixed
-      coordinate_frame: mixed
-      components:
-        world_vector:
-          source_field_path: action.world_vector
-          representation: cartesian_translation_delta
-          units: m
-          coordinate_frame: world
-        rotation_delta:
-          source_field_path: action.rotation_delta
-          representation: rotation_delta
-          units: rad
-          coordinate_frame: dataset_native
-        open_gripper:
-          source_field_path: action.open_gripper
-          representation: gripper_open_command
-          units: boolean
-        terminate_episode:
-          source_field_path: action.terminate_episode
-          representation: termination_command
-          units: boolean
-    state_mapping:
-      source_field_path: observation.state
-      representation: dataset_native_state
-      units: dataset_native
-    adapter_options:
-      # 这是随 OXE 导出结构变化的嵌套字段路径。标准 tar 处理细节不放配置。
-      image_field_path: steps[].observation.image
 
   - source_id: robomimic_test
     source_revision: 74fa018461f479cd9fd15b924a16103012096203
     source_uri: https://huggingface.co/datasets/robomimic/robomimic_datasets/tree/74fa018461f479cd9fd15b924a16103012096203
-    format: robomimic_hdf5
+    profile: robomimic_panda_low_dim
     # 相对 input_root 的 robomimic 数据目录；HDF5 文件名在 adapter_options 中配置。
     root: robomimic
-    robot_type: panda_single_arm
-    time_basis: step_index
-    # 已知 action 是 7 维，但未从上游文档确认其控制空间，因此显式保留 dataset_native 语义。
-    action_mapping:
-      source_field_path: actions
-      representation: dataset_native_action
-      units: dataset_native
-      coordinate_frame: unspecified
-    state_mapping:
-      source_field_path: states
-      representation: mujoco_simulator_state
-      units: dataset_native
-      coordinate_frame: simulation_world
-    adapter_options:
-      # 以下键路径来自对当前 HDF5 文件的只读探测，换用其它 robomimic 数据集时需要重点核对。
-      file: test.hdf5
-      demo_root: data
-      action_dataset: actions
-      state_dataset: states
-      observation_root: obs
-      done_dataset: dones
-      reward_dataset: rewards
-      camera_datasets:
-        - agentview_image
-        - robot0_eye_in_hand_image

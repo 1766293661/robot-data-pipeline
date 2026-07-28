@@ -6,6 +6,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.profiles import apply_profile
+
 
 class RuntimeConfig(BaseModel):
     batch_size: int = Field(default=512, ge=1)
@@ -50,6 +52,7 @@ class SourceConfig(BaseModel):
     source_id: str
     source_revision: str
     source_uri: str
+    profile: str | None = None
     format: Literal["lerobot", "oxe_tar", "robomimic_hdf5"]
     root: Path
     robot_type: str | None = None
@@ -59,6 +62,13 @@ class SourceConfig(BaseModel):
     state_mapping: SignalMapping | None = None
     adapter_options: dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_source_profile(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        return apply_profile(value)
 
     @field_validator("source_id", "source_revision")
     @classmethod
