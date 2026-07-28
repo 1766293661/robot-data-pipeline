@@ -30,7 +30,15 @@
   root: oxe_bridge_new
 ```
 
-`root` 相对 `input_data/`。当前内置 profile 为 `lerobot_aloha_dual_arm`、`oxe_bridge`、`robomimic_panda_low_dim`。只有数据布局或语义偏离 profile 时，才在该 source 下追加覆盖字段，例如 `adapter_options.image_field_path` 或 `action_mapping`。
+`root` 相对 `input_data/`。当前内置 profile 只有以下三个，使用 `profile` 字段时必须从中选择：
+
+| profile | 已验证的适用布局 |
+| --- | --- |
+| `lerobot_aloha_dual_arm` | LeRobot ALOHA 双臂 14 维关节 action/state，原生 Parquet 时间戳。 |
+| `oxe_bridge` | 当前 OXE Bridge tar/pickle 导出，含 world-vector、rotation、gripper 等嵌套 action。 |
+| `robomimic_panda_low_dim` | 当前 robomimic Panda 单臂 low-dimensional HDF5 布局。 |
+
+profile 是可选的：省略时，使用者必须手动填写 `format`、`time_basis`、`action_mapping`、`state_mapping` 及必要的 `adapter_options`。只有数据布局或语义偏离 profile 时，才在该 source 下追加覆盖字段，例如 `adapter_options.image_field_path` 或 `action_mapping`；不要将结构不同的数据强行套用现有 profile。
 
 ## 环境安装
 
